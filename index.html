@@ -155,6 +155,40 @@ form.add .row{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wra
 .lock h2{font-size:22px}
 .lock input[type=password]{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 12px;font-size:16px;width:100%}
 .lock .chk{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)}
+
+/* benchmark */
+.bench{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.bench>div{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.bench .you{background:var(--accent-soft)}
+.bench .v{font-size:20px;font-weight:500}
+.bench-bar{height:6px;border-radius:3px;background:var(--line-2);overflow:hidden}
+.bench-bar span{display:block;height:100%;border-radius:3px}
+.verdict-line{font-size:14px;color:var(--ink-2);margin:0}
+@media (max-width:640px){.bench{grid-template-columns:1fr}}
+/* what-if */
+.wi-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.wi-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-3);font-weight:600}
+.wi-form input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:15px;color:var(--ink);width:140px}
+.wi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.wi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.wi-grid .k{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.wi-grid .v{font-size:17px}
+.arrow{color:var(--ink-3);padding:0 4px}
+.mix{display:flex;flex-direction:column;gap:6px}
+.mix-row{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;font-size:12px;color:var(--ink-3)}
+.mix-bar{display:flex;gap:2px;height:12px;border-radius:3px;overflow:hidden}
+.mix-bar span{display:block;height:100%}
+/* news */
+.news{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media (max-width:760px){.news{grid-template-columns:1fr}}
+.news-card{border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.news-card .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.earn{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--line-2);color:var(--ink-2);white-space:nowrap}
+.earn.soon{background:var(--accent-soft);color:var(--accent)}
+.news-card a{color:var(--ink);text-decoration:none;font-size:14px;line-height:1.35;display:block}
+.news-card a:hover{color:var(--accent);text-decoration:underline}
+.news-card .meta{font-size:11px;color:var(--ink-3);margin-top:2px}
+.upcoming{display:flex;gap:8px;flex-wrap:wrap}
 </style>
 </head><body>
 
@@ -180,7 +214,7 @@ form.add .row{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wra
 (function(){
 const PEG_DEFAULT = 3.6725;
 const CLS_COLOR = {Stock:"var(--c-stock)", Gold:"var(--c-gold)", Crypto:"var(--c-crypto)"};
-const S = { trades:[], meta:null, cur:"USD", filter:"All", showForm:false, confirmId:null, canWrite:false, db:null, loaded:{t:false,m:false}, msg:"" };
+const S = { trades:[], meta:null, cur:"USD", filter:"All", showForm:false, confirmId:null, canWrite:false, db:null, loaded:{t:false,m:false}, msg:"", wi:{t:"",a:""}, wiRes:null, news:null, benchNow:{} };
 try{ const c=localStorage.getItem("pf-cur"); if(c==="AED"||c==="USD") S.cur=c; }catch(e){}
 
 const $ = s => document.querySelector(s);
@@ -274,6 +308,27 @@ function render(){
     </div>
   </section>`);
 
+  // benchmark
+  const B = benchmarks(C);
+  if(B){
+    const best = Math.max(Math.abs(C.total),Math.abs(B.spy.pl),Math.abs(B.gold.pl),1);
+    const cell=(label,pl,ret,sub,you)=>`<div class="${you?'you':''}"><span class="eyebrow">${label}</span>
+      <span class="v num ${cls(pl)}">${money(pl,S.cur,{sign:true})}</span>
+      <span class="sub num">${pct(ret)} on peak cash · ${sub}</span>
+      <div class="bench-bar"><span style="width:${Math.abs(pl)/best*100}%;background:${pl>=0?'var(--gain)':'var(--loss)'}"></span></div></div>`;
+    const diffS = C.total - B.spy.pl, diffG = C.total - B.gold.pl;
+    const line = `Your picks are ${diffS>=0?'ahead of':'behind'} the S&amp;P 500 by <b class="num">${money(Math.abs(diffS),S.cur,{dp:0})}</b> and ${diffG>=0?'ahead of':'behind'} gold by <b class="num">${money(Math.abs(diffG),S.cur,{dp:0})}</b>.`;
+    h.push(`<section class="panel">
+      <div class="panel-head"><h2>Am I beating the market?</h2><span class="sub">Same money, same days, put into one thing instead</span></div>
+      <div class="bench">
+        ${cell("Your picks",C.total,C.peak?C.total/C.peak:0,"after fees",true)}
+        ${cell("S&amp;P 500 (SPY)",B.spy.pl,C.peak?B.spy.pl/C.peak:0,`SPY ${B.spy.live?'live':'last close'} $${B.spy.now.toFixed(2)}`)}
+        ${cell("Gold only",B.gold.pl,C.peak?B.gold.pl/C.peak:0,`gold $${B.gold.now.toFixed(0)}/oz`)}
+      </div>
+      <p class="verdict-line">${line}</p>
+    </section>`);
+  }
+
   // open positions
   const allocByCls = {}; C.open.forEach(p=>allocByCls[p.cls]=(allocByCls[p.cls]||0)+p.mv);
   const allocKeys = ["Stock","Gold","Crypto"].filter(k=>allocByCls[k]>0);
@@ -322,6 +377,21 @@ function render(){
     </div>
   </div>`);
 
+  // what-if
+  h.push(`<section class="panel" id="whatif">
+    <div class="panel-head"><h2>What if I buy…</h2><span class="sub">See how a buy would change your holdings before you make it</span></div>
+    <form class="wi-form" id="wi-form" autocomplete="off">
+      <label>Ticker<input id="wi-t" placeholder="e.g. NVDA or XAU" value="${esc(S.wi.t)}" required></label>
+      <label>Amount (USD)<input id="wi-a" inputmode="decimal" placeholder="500" value="${esc(S.wi.a)}" required></label>
+      <button class="btn" type="submit">Check</button>
+      <span class="msg" id="wi-msg">${S.wiRes&&S.wiRes.err?esc(S.wiRes.err):''}</span>
+    </form>
+    ${S.wiRes&&!S.wiRes.err?whatIfHTML(C,S.wiRes):''}
+  </section>`);
+
+  // news
+  h.push(newsHTML(C));
+
   // account
   const hasDep = Math.abs(C.dep)>0.004;
   const cashBal = C.dep + C.cash, acctVal = C.mv + cashBal;
@@ -361,7 +431,7 @@ function render(){
     <div>${rows.join("")||`<div class="state">Nothing here yet.</div>`}</div>
   </section>`);
 
-  h.push(`<p class="foot">${S.builtAt?"Data updated "+S.builtAt+". ":""}<a href="#" onclick="lockNow();return false" style="color:inherit">Lock this device</a>. Average cost matches Wio, which leaves out buy fees; those fees are shown separately and taken off your total profit. Sales use the average-cost method: a sale's profit is the sale amount minus what those units cost on average. Stock prices come live from Finnhub and gold from gold-api.com (world spot price per troy ounce), so gold can differ slightly from Wio’s own price. AED figures use the ${fx()} peg. Return uses the most cash you had in the market at one time, because you recycle sale proceeds into new buys.</p>`);
+  h.push(`<p class="foot">${S.builtAt?"Data updated "+S.builtAt+". ":""}<a href="#" onclick="lockNow();return false" style="color:inherit">Lock this device</a>. Average cost matches Wio, which leaves out buy fees; those fees are shown separately and taken off your total profit. Sales use the average-cost method: a sale's profit is the sale amount minus what those units cost on average. Stock prices come live from Finnhub and gold from gold-api.com (world spot price per troy ounce), so gold can differ slightly from Wio’s own price. AED figures use the ${fx()} peg. Return uses the most cash you had in the market at one time, because you recycle sale proceeds into new buys. The market comparison puts every buy and sale into SPY (an S&amp;P 500 fund) or gold on the same day, for the same dollar amount, using that day's closing price. The what-if tool is a calculator, not a recommendation; its Wio charge is an estimate (about 0.21%, minimum $0.52).</p>`);
 
   const scroll = window.scrollY;
   app.innerHTML = h.join("");
@@ -370,6 +440,112 @@ function render(){
 }
 const kpi=(l,v,s,c="")=>`<div class="kpi"><span class="eyebrow">${l}</span><span class="v num ${c}">${v}</span><span class="s">${s}</span></div>`;
 const kpiPlain=(l,v)=>`<div style="display:flex;flex-direction:column;gap:2px"><span class="eyebrow">${l}</span><span class="v num">${v}</span></div>`;
+
+/* ---------- benchmark ---------- */
+function benchPrice(key,date){
+  const m=(S.bench||{})[key]; if(!m) return 0;
+  if(m[date]) return m[date];
+  const ds=Object.keys(m).sort(); let v=0; for(const d of ds){ if(d<=date) v=m[d]; else break; } return v||m[ds[0]];
+}
+function benchmarks(C){
+  if(!S.bench||!S.bench.SPY||!S.bench.GOLD) return null;
+  const run=(key,now)=>{ let u=0,buys=0,sells=0;
+    for(const t of C.tr){ if(t.type!=="Buy"&&t.type!=="Sell") continue; const p=benchPrice(key,t.date); if(!p) return null; const usd=toUSD(t);
+      if(t.type==="Buy"){u+=usd/p;buys+=usd;} else {u-=usd/p;sells+=usd;} }
+    return {pl:u*now+sells-buys, now};
+  };
+  const spyNow=S.benchNow.SPY||S.bench.SPYlast||0;
+  const goldNow=(S.meta.prices.XAU&&+S.meta.prices.XAU.price)||S.bench.GOLDlast||0;
+  const a=run("SPY",spyNow), b=run("GOLD",goldNow); if(!a||!b||!spyNow||!goldNow) return null;
+  a.live=!!S.benchNow.SPY; return {spy:a,gold:b};
+}
+/* ---------- what-if ---------- */
+async function fhGet(path){
+  for(const k of S.keys){ try{ const j=await getJSON("https://finnhub.io/api/v1/"+path+(path.includes("?")?"&":"?")+"token="+encodeURIComponent(k)); return j; }catch(e){} }
+  throw new Error("finnhub");
+}
+async function runWhatIf(tk,amt){
+  tk=tk.trim().toUpperCase(); if(tk==="GOLD") tk="XAU";
+  let price=0,name=tk;
+  try{
+    if(tk==="XAU"){ const j=await getJSON("https://api.gold-api.com/price/XAU"); price=+j.price*(S.goldAdj||1); name="Gold"; }
+    else { const q=await fhGet("quote?symbol="+encodeURIComponent(tk)); price=+q.c;
+      const known=S.trades.find(t=>t.ticker===tk); if(known) name=known.asset;
+      else { try{ const pr=await fhGet("stock/profile2?symbol="+encodeURIComponent(tk)); if(pr&&pr.name) name=pr.name; }catch(e){} } }
+  }catch(e){}
+  if(!(price>0)) return {err:`Couldn't find a price for "${tk}". Check the ticker (US stocks, or XAU for gold).`};
+  return {tk,name,price,amt,cls:tk==="XAU"?"Gold":"Stock"};
+}
+function whatIfHTML(C,R){
+  const fee=Math.max(0.52,R.amt*0.0021), units=R.amt/R.price;
+  const before={}; C.open.forEach(p=>before[p.ticker]=p.mv);
+  const after={...before}; after[R.tk]=(after[R.tk]||0)+R.amt;
+  const tot=o=>Object.values(o).reduce((a,b)=>a+b,0); const tb=tot(before), ta=tot(after);
+  const sh=(o,t,k)=>t?(o[k]||0)/t:0;
+  const big=(o,t)=>{let k=null,v=0;for(const [a,b] of Object.entries(o)) if(b>v){v=b;k=a;} return {k,share:t?v/t:0};};
+  const bb=big(before,tb), ba=big(after,ta);
+  const nameOf=k=>k===R.tk?R.name:((C.open.find(p=>p.ticker===k)||{}).asset||k);
+  const ex=C.open.find(p=>p.ticker===R.tk);
+  const avgNew=ex?(ex.cost+R.amt)/(ex.qty+units):R.price;
+  const sens=(o,t)=>(o[R.tk]||0)*0.10;
+  const colors=["var(--c-gold)","var(--c-stock)","var(--c-crypto)","var(--accent)","var(--gain)","var(--loss)","var(--ink-3)","var(--ink-2)"];
+  const keys=[...new Set([...Object.keys(after)])].sort((a,b)=>(after[b]||0)-(after[a]||0));
+  const col=k=>k==="XAU"?"var(--c-gold)":k===R.tk?"var(--accent)":colors[(keys.indexOf(k)%6)+1];
+  const bar=(o,t)=>`<div class="mix-bar">${keys.filter(k=>o[k]).map(k=>`<span data-tip="${esc(nameOf(k))}: ${pct(o[k]/t,false)} · ${money(o[k])}" style="width:${o[k]/t*100}%;background:${col(k)}"></span>`).join("")}</div>`;
+  return `<div class="wi-grid">
+      <div><div class="k">You'd get</div><div class="v num">${qfmt(+units.toFixed(8))} ${R.tk==="XAU"?"oz":"shares"}</div><div class="sub">${esc(R.name)} at $${R.price.toFixed(2)}</div></div>
+      <div><div class="k">Wio charge (est.)</div><div class="v num">$${fee.toFixed(2)}</div><div class="sub">Total $${(R.amt+fee).toFixed(2)}</div></div>
+      <div><div class="k">${esc(R.tk)} share of holdings</div><div class="v num">${pct(sh(before,tb,R.tk),false)}<span class="arrow">→</span>${pct(sh(after,ta,R.tk),false)}</div><div class="sub">${ex?`Avg cost $${(ex.cost/ex.qty).toFixed(2)} → $${avgNew.toFixed(2)}`:"New position"}</div></div>
+      <div><div class="k">Biggest position</div><div class="v num">${pct(bb.share,false)}<span class="arrow">→</span>${pct(ba.share,false)}</div><div class="sub">${esc(nameOf(ba.k))}${R.tk!=="XAU"&&before.XAU?` · gold ${pct(sh(before,tb,"XAU"),false)} → ${pct(sh(after,ta,"XAU"),false)}`:""}</div></div>
+    </div>
+    <div class="mix"><div class="mix-row"><span>Now</span>${bar(before,tb)}</div><div class="mix-row"><span>After</span>${bar(after,ta)}</div></div>
+    <p class="verdict-line">If ${esc(R.name)} moved 10%, your holdings would move by about <b class="num">${money(sens(after,ta))}</b> (${pct(sens(after,ta)/ta,false)} of everything you hold)${before[R.tk]?`, up from ${money(sens(before,tb))} today`:""}. Positions: ${Object.keys(before).length} → ${Object.keys(after).length}.</p>`;
+}
+/* ---------- news & earnings ---------- */
+function newsHTML(C){
+  const N=S.news;
+  const tks=C.open.filter(p=>p.ticker!=="XAU"&&p.cls==="Stock");
+  let body;
+  if(!N) body=`<div class="sub">Loading news and earnings dates for your ${tks.length} stocks…</div>`;
+  else if(N.err) body=`<div class="note">Couldn't load news right now. It will try again the next time you open the page.</div>`;
+  else {
+    const today=new Date().toISOString().slice(0,10);
+    const soonest=tks.map(p=>({p,e:(N.data[p.ticker]||{}).earn})).filter(x=>x.e&&x.e.date>=today).sort((a,b)=>a.e.date<b.e.date?-1:1);
+    const daysTo=d=>Math.round((new Date(d+"T12:00:00")-new Date(today+"T12:00:00"))/864e5);
+    const hourTxt=h=>h==="amc"?"after close":h==="bmo"?"before open":"";
+    const order=[...soonest.map(x=>x.p), ...tks.filter(p=>!soonest.find(x=>x.p===p))];
+    const up=soonest.filter(x=>daysTo(x.e.date)<=30);
+    body=`${up.length?`<div class="upcoming"><span class="eyebrow" style="align-self:center">Next 30 days</span>${up.map(x=>`<span class="earn soon">${esc(x.p.ticker)} earnings ${dfmt(x.e.date,{day:"numeric",month:"short"})}</span>`).join("")}</div>`:""}
+    <div class="news">${order.map(p=>{const d=N.data[p.ticker]||{}; const e=d.earn; const dt=e?daysTo(e.date):null;
+      return `<div class="news-card"><div class="hd"><div class="asset"><b>${esc(p.asset)}</b><span class="tick">${esc(p.ticker)}</span></div>
+        ${e&&e.date>=today?`<span class="earn ${dt<=14?'soon':''}">Earnings ${dfmt(e.date,{day:"numeric",month:"short"})}${hourTxt(e.hour)?" · "+hourTxt(e.hour):""}${dt<=14?` · in ${dt} day${dt===1?"":"s"}`:""}</span>`:`<span class="earn">No earnings date yet</span>`}</div>
+        ${(d.news||[]).length?(d.news||[]).map(n=>`<div><a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.headline)}</a><div class="meta">${esc(n.source)} · ${new Date(n.datetime*1000).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</div></div>`).join(""):`<div class="sub">No headlines in the last 2 weeks.</div>`}
+      </div>`;}).join("")}</div>`;
+  }
+  return `<section class="panel"><div class="panel-head"><h2>News on what you hold</h2><span class="sub">Earnings dates and the latest headlines · updates hourly</span></div>${body}</section>`;
+}
+async function loadNews(force){
+  const tks=[...new Set(S.trades.filter(t=>t.type==="Buy"||t.type==="Sell").map(t=>t.ticker))];
+  const pos={}; S.trades.forEach(t=>{ if(t.type==="Buy") pos[t.ticker]=(pos[t.ticker]||0)+t.qty; if(t.type==="Sell") pos[t.ticker]=(pos[t.ticker]||0)-t.qty; });
+  const open=tks.filter(k=>pos[k]>1e-9&&k!=="XAU"&&k!=="SOL");
+  const sig=open.sort().join(",");
+  if(!force){ try{ const c=JSON.parse(localStorage.getItem("pf-news")||"null"); if(c&&c.sig===sig&&Date.now()-c.at<3600e3){ S.news=c; render(); return; } }catch(e){} }
+  const iso=d=>d.toISOString().slice(0,10); const now=new Date(); const from=iso(new Date(now-14*864e5)), to=iso(now), eTo=iso(new Date(+now+120*864e5));
+  const data={}; let ok=0;
+  await Promise.all(open.map(async tk=>{
+    const name=((S.trades.find(t=>t.ticker===tk)||{}).asset||tk).split(/[\s,.]/)[0].toLowerCase();
+    const d={};
+    try{ const arr=await fhGet(`company-news?symbol=${encodeURIComponent(tk)}&from=${from}&to=${to}`);
+      if(Array.isArray(arr)){ const rel=arr.filter(n=>(n.headline+" "+(n.summary||"")).toLowerCase().includes(name)||(n.headline||"").includes(tk));
+        d.news=(rel.length?rel:arr).sort((a,b)=>b.datetime-a.datetime).slice(0,2).map(n=>({headline:n.headline,source:n.source,datetime:n.datetime,url:n.url})); ok++; } }catch(e){}
+    try{ const j=await fhGet(`calendar/earnings?from=${to}&to=${eTo}&symbol=${encodeURIComponent(tk)}`);
+      const c=(j.earningsCalendar||[]).filter(x=>x.date>=to).sort((a,b)=>a.date<b.date?-1:1)[0]; if(c) d.earn={date:c.date,hour:c.hour}; }catch(e){}
+    data[tk]=d;
+  }));
+  S.news = ok||!open.length ? {at:Date.now(),sig,data} : {err:true};
+  if(!S.news.err){ try{ localStorage.setItem("pf-news",JSON.stringify(S.news)); }catch(e){} }
+  render();
+}
 
 /* ---------- charts ---------- */
 function lineChart(C){
@@ -461,6 +637,12 @@ function bindForm(C){
 
 /* ---------- events ---------- */
 function bind(C){
+  const wf=$("#wi-form"); if(wf) wf.addEventListener("submit",async e=>{ e.preventDefault();
+    const t=$("#wi-t").value, a=parseFloat($("#wi-a").value.replace(/,/g,""));
+    S.wi={t,a:$("#wi-a").value};
+    if(!t.trim()||!(a>0)){ $("#wi-msg").textContent="Enter a ticker and an amount above 0."; $("#wi-msg").className="msg loss"; return; }
+    $("#wi-msg").textContent="Checking price…"; $("#wi-msg").className="msg";
+    S.wiRes=await runWhatIf(t,a); render(); });
   document.querySelectorAll("[data-f]").forEach(b=>b.addEventListener("click",()=>{S.filter=b.dataset.f;render();}));
   const tf=$("#toggle-form"); if(tf) tf.addEventListener("click",()=>{S.showForm=!S.showForm;S.msg="";render(); if(S.showForm) $("#f-date")?.focus();});
   document.querySelectorAll("[data-ask]").forEach(b=>b.addEventListener("click",()=>{S.confirmId=b.dataset.ask;render();}));
@@ -495,8 +677,8 @@ async function unlock(pw){
 }
 function load(data){
   S.trades=data.trades.map((x,i)=>({id:"t"+i,...x,qty:+x.qty||0,amount:+x.amount||0}));
-  S.meta=data.meta; S.db=true; S.loaded.t=S.loaded.m=true; S.builtAt=data.builtAt||""; S.keys=(data.finnhubKeys||[data.finnhubKey]).filter(Boolean); S.goldAdj=+data.goldAdj||1; render();
-  refreshLive(); setInterval(()=>{ if(!document.hidden) refreshLive(); }, 5*60*1000);
+  S.meta=data.meta; S.db=true; S.loaded.t=S.loaded.m=true; S.builtAt=data.builtAt||""; S.keys=(data.finnhubKeys||[data.finnhubKey]).filter(Boolean); S.bench=data.bench||null; S.goldAdj=+data.goldAdj||1; render();
+  refreshLive(); loadNews(); setInterval(()=>{ if(!document.hidden) refreshLive(); }, 5*60*1000);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden && Date.now()-(S.liveAt||0)>60000) refreshLive(); });
 }
 /* ---------- live prices: stocks from Finnhub, gold from gold-api.com, SOL from Coinbase ---------- */
@@ -517,6 +699,7 @@ async function refreshLive(){
       if(price>0){ S.meta.prices[tk]={...(S.meta.prices[tk]||{}),price,date:today,live:true}; ok++; } else fail.push(tk);
     }catch(e){ fail.push(tk); }
   }));
+  try{ const q=await fhGet("quote?symbol=SPY"); if(+q.c>0) S.benchNow.SPY=+q.c; }catch(e){}
   S.liveBusy=false; S.liveAt=Date.now(); S.liveFail=fail;
   S.liveState = ok && !fail.length ? "ok" : ok ? "partial" : "failed";
   render();
